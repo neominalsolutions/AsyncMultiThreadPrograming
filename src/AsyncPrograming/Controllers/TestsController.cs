@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using AsyncPrograming.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AsyncPrograming.Controllers
@@ -8,6 +9,12 @@ namespace AsyncPrograming.Controllers
   public class TestsController : ControllerBase
   {
     private HttpClient client = new HttpClient();
+    private IAsyncService service;
+
+    public TestsController(IAsyncService asyncService)
+    {
+      service = asyncService;
+    }
 
     [HttpGet("sync")]
     public IActionResult SyncRequest()
@@ -61,8 +68,8 @@ namespace AsyncPrograming.Controllers
 
       using (HttpClient client = new HttpClient())
       {
-        //var data = client.GetStringAsync("https://www.google.com").Result;
-        var data = client.GetStringAsync("https://www.google.com").GetAwaiter().GetResult();
+        var data = client.GetStringAsync("https://www.google.com").Result;
+        var data2 = client.GetStringAsync("https://www.google.com").GetAwaiter().GetResult();
         Console.Out.WriteLine($"Dosya Boyutu {data.Length}");
         Console.Out.WriteLineAsync($"ThreadId {Thread.CurrentThread.ManagedThreadId}");
       }
@@ -107,6 +114,8 @@ namespace AsyncPrograming.Controllers
 
       client.GetStringAsync("https://www.google.com").ContinueWith(async (data2) =>
       {
+       
+
         await Console.Out.WriteLineAsync($"Google Boyutu {data2.Result.Length}");
       });
 
@@ -129,7 +138,7 @@ namespace AsyncPrograming.Controllers
 
 
     [HttpGet("WaitAll")]
-    public  IActionResult WaitAll()
+    public IActionResult WaitAll()
     {
       // wait ifadeleri ana thread main thread bloke eder.
       var task1 = client.GetStringAsync("https://google.com");
@@ -176,7 +185,7 @@ namespace AsyncPrograming.Controllers
 
       try
       {
-       
+
 
         await Task.Delay(5000); // İptali simüle etmek için koyduk, 5sn
 
@@ -199,10 +208,53 @@ namespace AsyncPrograming.Controllers
       {
         await Console.Out.WriteLineAsync("Genel bir exception" + ex.Message);
       }
-     
-     
+
+
 
       return Ok();
+    }
+
+
+    [HttpGet("taskException")]
+    public async Task<IActionResult> TaskException()
+    {
+      // Async bir kod bloğu içerisinde bir exception durumu oluşsun istersek Task.FromException<Exception>(new Exception("Hata")); ile kodu return etmek zorundayız.
+
+      try
+      {
+        await Task.Run(() =>
+        {
+          return Task.FromException<Exception>(new Exception("Hata"));
+        });
+
+      }
+      catch (Exception ex)
+      {
+        Console.Out.WriteLine(ex.Message);
+      }
+
+      return Ok();
+    }
+
+
+    [HttpGet("customAsync")]
+    public async Task<IActionResult> CustomServiceAsync(CancellationToken cancellationToken)
+    {
+      // Not: Asenkron bir kod bloğu senkron bir kodda meydana gelen exception yakalayamaz.
+
+      //try
+      //{
+      var response =  await service.HandleAsync(cancellationToken);
+      return Ok(response);
+      //  return Ok(response);
+      //}
+      //catch (Exception ex)
+      //{
+      //  await Console.Out.WriteLineAsync(ex.Message);
+      //  return BadRequest(ex.Message);
+
+      //}
+
     }
 
   }
