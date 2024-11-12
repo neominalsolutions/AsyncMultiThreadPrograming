@@ -128,7 +128,82 @@ namespace AsyncPrograming.Controllers
     }
 
 
+    [HttpGet("WaitAll")]
+    public  IActionResult WaitAll()
+    {
+      // wait ifadeleri ana thread main thread bloke eder.
+      var task1 = client.GetStringAsync("https://google.com");
+      var task2 = client.GetStringAsync("https://neominal.com");
 
+      // Task.WaitAll(task1, task2); // Thread Bloke Eder.
+
+
+      task1.Wait(); // Thread Bloke eder
+      Task.WaitAny(task1); // Thread Bloke Eder
+
+      Console.Out.WriteLine($"Google {task1.Result.Length}");
+      Console.Out.WriteLine($"Neominal {task2.Result.Length}");
+
+      Console.Out.WriteLine($"WaitAll {Thread.CurrentThread.ManagedThreadId}");
+
+      return Ok();
+    }
+
+
+    [HttpGet("whenAll")]
+    public async Task<IActionResult> WhenAll()
+    {
+      // wait ifadeleri ana thread main thread bloke eder.
+      var task1 = client.GetStringAsync("https://google.com");
+      var task2 = client.GetStringAsync("https://neominal.com");
+      // await Task.WhenAll(task1, task2);
+
+      await Task.WhenAny(task1); // içlerinden herhangi bir taskın resultını alıncaya kadar işlemi uyutur. 
+
+      Console.Out.WriteLine($"Google {task1.Result.Length}");
+      // Console.Out.WriteLine($"Neominal {task2.Result.Length}");
+
+      Console.Out.WriteLine($"WhenAll {Thread.CurrentThread.ManagedThreadId}");
+
+      return Ok();
+    }
+
+    // Uzun süren bir asenkron kod bloğunu iptal etmek istediğimiz durumlar olabilir.
+    // Asenkron tanımlı bir kod bloğu ise CancellationToken değerini parametre olarak gönderebiliriz.
+    [HttpGet("requestCancelation")]
+    public async Task<IActionResult> RequestCancelation(CancellationToken cancellationToken)
+    {
+
+      try
+      {
+       
+
+        await Task.Delay(5000); // İptali simüle etmek için koyduk, 5sn
+
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+          await Console.Out.WriteLineAsync("İstek iptal edildi");
+        }
+
+        var task1 = client.GetStringAsync("https://google.com");
+        await Console.Out.WriteLineAsync($"WhenAll {Thread.CurrentThread.ManagedThreadId}");
+
+        cancellationToken.ThrowIfCancellationRequested(); // request iptal edilince exception fırlat
+      }
+      catch (OperationCanceledException ex)
+      {
+        await Console.Out.WriteLineAsync(ex.Message);
+      }
+      catch (Exception ex)
+      {
+        await Console.Out.WriteLineAsync("Genel bir exception" + ex.Message);
+      }
+     
+     
+
+      return Ok();
+    }
 
   }
 }
